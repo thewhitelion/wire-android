@@ -17,7 +17,6 @@
  */
 package com.waz.zclient.appentry.fragments
 
-import android.content.DialogInterface
 import android.graphics.Color
 import android.os.Bundle
 import android.view.{LayoutInflater, View, ViewGroup}
@@ -31,7 +30,7 @@ import com.waz.zclient.newreg.views.PhoneConfirmationButton
 import com.waz.zclient.newreg.views.PhoneConfirmationButton.State._
 import com.waz.zclient.pages.BaseFragment
 import com.waz.zclient.pages.main.profile.views.GuidedEditText
-import com.waz.zclient.utils.{ViewUtils, _}
+import com.waz.zclient.utils._
 import com.waz.zclient.{FragmentHelper, R}
 import InsertPasswordFragment._
 import com.waz.zclient.appentry.controllers.SignInController._
@@ -84,7 +83,7 @@ class InsertPasswordFragment extends BaseFragment[Container] with FragmentHelper
         signInController.attemptSignIn().map {
           case Left(error) =>
             getContainer.enableProgress(false)
-            showError(error)
+            getContainer.showError(error)
           case _ =>
         } (Threading.Ui)
       case R.id.ttv_signin_forgot_password =>
@@ -92,19 +91,6 @@ class InsertPasswordFragment extends BaseFragment[Container] with FragmentHelper
       case _ =>
     }
   }
-
-  def showError(entryError: EntryError, okCallback: => Unit = {}): Unit =
-    ViewUtils.showAlertDialog(getActivity,
-      entryError.headerResource,
-      entryError.bodyResource,
-      R.string.reg__phone_alert__button,
-      new DialogInterface.OnClickListener() {
-        def onClick(dialog: DialogInterface, which: Int): Unit = {
-          dialog.dismiss()
-          okCallback
-        }
-      },
-      false)
 
   override def onBackPressed() = {
     ZMessaging.currentAccounts.removeCurrentAccount()
@@ -120,5 +106,6 @@ object InsertPasswordFragment {
   trait Container {
     def enableProgress(enabled: Boolean): Unit
     def onOpenUrl(url: String): Unit
+    def showError(entryError: EntryError, okCallback: => Unit = {}): Unit
   }
 }

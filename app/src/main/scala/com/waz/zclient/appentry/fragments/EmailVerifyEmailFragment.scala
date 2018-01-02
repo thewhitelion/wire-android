@@ -48,6 +48,11 @@ class EmailVerifyEmailFragment extends BaseFragment[EmailVerifyEmailFragment.Con
     findById[View](view, R.id.gtv__not_now__close).setVisibility(View.GONE)
     findById[View](view, R.id.fl__confirmation_checkmark).setVisibility(View.GONE)
 
+    appEntryController.currentAccount.map(_.map(_.phone.isDefined)).onUi {
+      case Some(true) => backButton.setVisibility(View.GONE)
+      case _ => backButton.setVisibility(View.VISIBLE)
+    }
+
     appEntryController.currentAccount.map(_.flatMap(acc => acc.pendingEmail.orElse(acc.email))).onUi {
       case Some(email) => setEmailText(email.str)
       case _ => setEmailText("")

@@ -34,7 +34,7 @@ import com.waz.service.tracking.TrackingService
 import com.waz.service.{NetworkModeService, UiLifeCycle, ZMessaging}
 import com.waz.utils.events.{EventContext, Signal, Subscription}
 import com.waz.zclient.api.scala.ScalaStoreFactory
-import com.waz.zclient.appentry.controllers.{AppEntryController, InvitationsController, SignInController}
+import com.waz.zclient.appentry.controllers.{AddEmailController, AppEntryController, SignInController, InvitationsController}
 import com.waz.zclient.calling.controllers.{CallPermissionsController, CurrentCallController, GlobalCallingController}
 import com.waz.zclient.camera.controllers.{AndroidCameraFactory, GlobalCameraController}
 import com.waz.zclient.collection.controllers.CollectionController
@@ -188,6 +188,7 @@ object WireApplication {
     bind [ParticipantsController]       to new ParticipantsController()
     bind [UsersController]              to new UsersController()
     bind [SpinnerController]            to new SpinnerController()
+    bind [AddEmailController]           to new AddEmailController()
 
     /**
       * Since tracking controllers will immediately instantiate other necessary controllers, we keep them separated

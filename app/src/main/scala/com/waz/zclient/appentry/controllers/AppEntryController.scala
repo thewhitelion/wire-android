@@ -51,6 +51,13 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
   val currentUser = optZms.flatMap{ _.fold(Signal.const(Option.empty[UserData]))(z => z.usersStorage.optSignal(z.selfUserId)) }
   val firstStage = Signal[FirstStage](FirstScreen)
 
+  val userClientsCount = for {
+    Some(manager) <- ZMessaging.currentAccounts.activeAccountManager
+    Some(user)  <- currentUser
+    selfClientId  <- manager.accountData.map(_.clientId)
+    clients       <- Signal.future(manager.storage.otrClientsStorage.get(user.id))
+  } yield clients.fold(0)(_.clients.values.count(client => !selfClientId.contains(client.id)))
+
   //Vars to persist text in edit boxes
   var teamName = ""
   var teamEmail = ""
@@ -72,7 +79,8 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
     account <- currentAccount
     user <- currentUser.orElse(Signal.const(None))
     firstPageState <- firstStage
-    state <- Signal.const(stateForAccountAndUser(account, user, firstPageState)).collect{ case s if s != Waiting => s }
+    clientCount <- userClientsCount.orElse(Signal(0))
+    state <- Signal.const(stateForAccountAndUser(account, user, firstPageState, clientCount)).collect{ case s if s != Waiting => s }
   } yield state
 
   entryStage.onUi { stage =>
@@ -90,7 +98,7 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
     case false =>
   }
 
-  def stateForAccountAndUser(account: Option[AccountData], user: Option[UserData], firstPageState: FirstStage): AppEntryStage = {
+  def stateForAccountAndUser(account: Option[AccountData], user: Option[UserData], firstPageState: FirstStage, clientCount: Int): AppEntryStage = {
     ZLog.verbose(s"Current account and user: $account $user")
     (account, user) match {
       case (None, _) =>
@@ -107,10 +115,12 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
         VerifyPhoneStage
       case (Some(accountData), _) if accountData.clientRegState == ClientRegistrationState.PASSWORD_MISSING || (accountData.pendingPhone == accountData.phone && !accountData.canLogin && accountData.cookie.isEmpty) =>
         InsertPasswordStage
+      case (Some(accountData), _) if accountData.email.isEmpty && accountData.pendingEmail.isEmpty && clientCount >= 1 =>
+        AddEmailStage
+      case (Some(accountData), _) if accountData.pendingEmail.isDefined && accountData.password.isDefined && (!accountData.verified || (accountData.email.isEmpty && clientCount >= 1) ) =>
+        VerifyEmailStage
       case (Some(accountData), _) if accountData.clientRegState == ClientRegistrationState.LIMIT_REACHED =>
         DeviceLimitStage
-      case (Some(accountData), _) if accountData.pendingEmail.isDefined && accountData.password.isDefined && !accountData.verified =>
-        VerifyEmailStage
       case (Some(accountData), _) if accountData.regWaiting =>
         AddNameStage
       case (Some(accountData), None) if accountData.cookie.isDefined || accountData.accessToken.isDefined =>
@@ -364,6 +374,7 @@ object AppEntryController {
   object VerifyPhoneStage    extends AppEntryStage
   object AddHandleStage      extends AppEntryStage
   object InsertPasswordStage extends AppEntryStage
+  object AddEmailStage       extends AppEntryStage
 
   object SetTeamEmail            extends AppEntryStage { override val depth = 2 }
   object VerifyTeamEmail         extends AppEntryStage { override val depth = 3 }

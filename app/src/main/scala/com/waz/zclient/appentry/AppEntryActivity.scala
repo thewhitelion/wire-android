@@ -66,7 +66,8 @@ class AppEntryActivity extends BaseActivity
   with SignInFragment.Container
   with FirstTimeAssignUsernameFragment.Container
   with InsertPasswordFragment.Container
-  with CreateTeamFragment.Container {
+  with CreateTeamFragment.Container
+  with AddEmailFragment.Container {
 
   private lazy val unsplashInitImageAsset = ImageAssetFactory.getImageAsset(AndroidURIUtil.parse(UNSPLASH_API_URL))
   private var unsplashInitLoadHandle: LoadHandle = null
@@ -142,6 +143,8 @@ class AppEntryActivity extends BaseActivity
         onShowInsertPassword()
       case TeamSetPicture =>
         appEntryController.setPicture(unsplashInitImageAsset, SignUpPhotoFragment.Source.Auto, SignUpPhotoFragment.RegistrationType.Email)
+      case AddEmailStage =>
+        onShowAddEmail()
       case _ =>
     }
   }
@@ -324,6 +327,9 @@ class AppEntryActivity extends BaseActivity
 
   def onShowInsertPassword(): Unit =
     showFragment(InsertPasswordFragment.newInstance(), InsertPasswordFragment.Tag)
+
+  def onShowAddEmail(): Unit =
+    showFragment(AddEmailFragment(), AddEmailFragment.Tag)
 
   private def showFragment(f: => Fragment, tag: String): Unit = {
     setDefaultAnimation(getSupportFragmentManager.beginTransaction)
