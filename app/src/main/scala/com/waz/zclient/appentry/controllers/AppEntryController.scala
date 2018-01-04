@@ -24,6 +24,7 @@ import com.waz.api.{ClientRegistrationState, ImageAsset, KindOfAccess}
 import com.waz.client.RegistrationClientImpl.ActivateResult
 import com.waz.client.RegistrationClientImpl.ActivateResult.{Failure, PasswordExists}
 import com.waz.model._
+import com.waz.model.otr.{ClientId, UserClients}
 import com.waz.service.ZMessaging
 import com.waz.service.tracking.TrackingService
 import com.waz.threading.Threading
@@ -33,10 +34,9 @@ import com.waz.zclient.appentry.controllers.SignInController._
 import com.waz.zclient.appentry.{EntryError, GenericRegisterPhoneError}
 import com.waz.zclient.newreg.fragments.SignUpPhotoFragment
 import com.waz.zclient.newreg.fragments.SignUpPhotoFragment.RegistrationType
-import com.waz.zclient.tracking._
-import com.waz.znet.ZNetClient.ErrorOr
-import com.waz.zclient.tracking.{AddPhotoOnRegistrationEvent, GlobalTrackingController}
+import com.waz.zclient.tracking.{AddPhotoOnRegistrationEvent, GlobalTrackingController, _}
 import com.waz.zclient.{Injectable, Injector}
+import com.waz.znet.ZNetClient.ErrorOr
 
 import scala.concurrent.Future
 
@@ -57,6 +57,18 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
     selfClientId  <- manager.accountData.map(_.clientId)
     clients       <- Signal.future(manager.storage.otrClientsStorage.get(user.id))
   } yield clients.fold(0)(_.clients.values.count(client => !selfClientId.contains(client.id)))
+
+  val userHasOtherClients = for {
+    manager <- ZMessaging.currentAccounts.activeAccountManager
+    user <- currentUser.map(_.map(_.id))
+    selfClientId <- manager.fold(Signal.const(Option.empty[ClientId]))(_.accountData.map(_.clientId))
+    clients <- (manager, user) match {
+      case (Some(m), Some(u)) => m.storage.otrClientsStorage.signal(u).map(Some(_))
+      case _ => Signal.const(Option.empty[UserClients])
+    }
+    clientCount = clients.fold(0)(_.clients.values.count(client => !selfClientId.contains(client.id)))
+    _ = ZLog.verbose(s"userClientsCount $manager $user $clientCount")
+  } yield clientCount >= 1
 
   //Vars to persist text in edit boxes
   var teamName = ""
@@ -79,8 +91,8 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
     account <- currentAccount
     user <- currentUser.orElse(Signal.const(None))
     firstPageState <- firstStage
-    clientCount <- userClientsCount.orElse(Signal(0))
-    state <- Signal.const(stateForAccountAndUser(account, user, firstPageState, clientCount)).collect{ case s if s != Waiting => s }
+    hasOtherClients <- userHasOtherClients
+    state <- Signal.const(stateForAccountAndUser(account, user, firstPageState, hasOtherClients)).collect{ case s if s != Waiting => s }
   } yield state
 
   entryStage.onUi { stage =>
@@ -98,8 +110,8 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
     case false =>
   }
 
-  def stateForAccountAndUser(account: Option[AccountData], user: Option[UserData], firstPageState: FirstStage, clientCount: Int): AppEntryStage = {
-    ZLog.verbose(s"Current account and user: $account $user")
+  def stateForAccountAndUser(account: Option[AccountData], user: Option[UserData], firstPageState: FirstStage, hasOtherClients: Boolean): AppEntryStage = {
+    ZLog.verbose(s"Current account and user: $account $user $hasOtherClients")
     (account, user) match {
       case (None, _) =>
         NoAccountState(firstPageState)
@@ -115,9 +127,9 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
         VerifyPhoneStage
       case (Some(accountData), _) if accountData.clientRegState == ClientRegistrationState.PASSWORD_MISSING || (accountData.pendingPhone == accountData.phone && !accountData.canLogin && accountData.cookie.isEmpty) =>
         InsertPasswordStage
-      case (Some(accountData), _) if accountData.email.isEmpty && accountData.pendingEmail.isEmpty && clientCount >= 1 =>
+      case (Some(accountData), _) if accountData.email.isEmpty && accountData.pendingEmail.isEmpty && hasOtherClients =>
         AddEmailStage
-      case (Some(accountData), _) if accountData.pendingEmail.isDefined && accountData.password.isDefined && (!accountData.verified || (accountData.email.isEmpty && clientCount >= 1) ) =>
+      case (Some(accountData), _) if accountData.pendingEmail.isDefined && accountData.password.isDefined && (!accountData.verified || (accountData.email.isEmpty && hasOtherClients) ) =>
         VerifyEmailStage
       case (Some(accountData), _) if accountData.clientRegState == ClientRegistrationState.LIMIT_REACHED =>
         DeviceLimitStage
@@ -135,7 +147,7 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
         AddHandleStage
       case (Some(accountData), Some(_)) if accountData.pendingTeamName.isDefined =>
         InviteToTeam
-      case (Some(accountData), Some(userData)) if accountData.firstLogin && accountData.clientRegState == ClientRegistrationState.REGISTERED =>
+      case (Some(accountData), Some(userData)) if accountData.firstLogin && accountData.clientRegState == ClientRegistrationState.REGISTERED && hasOtherClients =>
         FirstEnterAppStage
       case (Some(accountData), Some(userData)) if accountData.clientRegState == ClientRegistrationState.REGISTERED =>
         EnterAppStage

@@ -26,7 +26,7 @@ import com.waz.zclient.newreg.views.PhoneConfirmationButton.State.{CONFIRM, NONE
 import com.waz.zclient.pages.BaseFragment
 import com.waz.zclient.pages.main.profile.views.GuidedEditText
 import com.waz.zclient.utils._
-import com.waz.zclient.{FragmentHelper, R}
+import com.waz.zclient.{FragmentHelper, OnBackPressedListener, R}
 import AddEmailFragment._
 import com.waz.ZLog
 import com.waz.zclient.appentry.EntryError
@@ -34,7 +34,7 @@ import com.waz.zclient.appentry.controllers.SignInController.{Email, Register, S
 import com.waz.ZLog.ImplicitTag._
 import com.waz.threading.Threading.Implicits.Ui
 
-case class AddEmailFragment() extends BaseFragment[Container] with FragmentHelper {
+case class AddEmailFragment() extends BaseFragment[Container] with FragmentHelper with OnBackPressedListener {
 
   lazy val addEmailController = inject[AddEmailController]
 
@@ -76,6 +76,8 @@ case class AddEmailFragment() extends BaseFragment[Container] with FragmentHelpe
 
   private def setConfirmationButtonActive(active: Boolean): Unit =
     confirmationButton.foreach(_.setState(if(active) CONFIRM else NONE))
+
+  override def onBackPressed(): Boolean = true
 }
 
 object AddEmailFragment {
