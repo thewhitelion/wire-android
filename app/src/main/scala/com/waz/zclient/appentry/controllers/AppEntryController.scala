@@ -283,7 +283,9 @@ class AppEntryController(implicit inj: Injector, eventContext: EventContext) ext
     }
   }
 
-  def cancelVerification(): Unit = ZMessaging.currentAccounts.logout(false)
+  def removeCurrentAccount(): Unit = ZMessaging.currentAccounts.logout(false)
+
+  def cancelEmailVerification(): Unit = ZMessaging.currentAccounts.updateCurrentAccount(_.copy(pendingEmail = None))
 
   def setPicture(imageAsset: ImageAsset, source: SignUpPhotoFragment.Source, registrationType: RegistrationType): Unit = {
     optZms.head.map {

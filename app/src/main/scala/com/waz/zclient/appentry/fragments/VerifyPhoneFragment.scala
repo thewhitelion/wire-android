@@ -170,7 +170,7 @@ class VerifyPhoneFragment extends BaseFragment[VerifyPhoneFragment.Container] wi
   }
 
   private def goBack(): Unit = {
-    appEntryController.cancelVerification()
+    appEntryController.removeCurrentAccount()
   }
 
   private def confirmCode(): Unit = {

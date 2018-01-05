@@ -50,10 +50,11 @@ class AddEmailController(implicit inj: Injector, eventContext: EventContext, con
       password <- password.head
       Some(accountManager) <- ZMessaging.currentAccounts.activeAccountManager.head
       emailRes <- accountManager.updateEmail(EmailAddress(email)).future
+      currentAccount <- accountManager.accountData.head
       res <- emailRes match {
         case Right(_) =>
           accountManager.accounts.updateCurrentAccount(_.copy(pendingEmail = Some(EmailAddress(email)))).flatMap { _ =>
-            accountManager.updatePassword(password, None)
+            accountManager.updatePassword(password, currentAccount.password)
           }
         case Left(err) => Future.successful(Left(err))
       }

@@ -36,10 +36,11 @@ object EmailVerifyEmailFragment {
 }
 
 class EmailVerifyEmailFragment extends BaseFragment[EmailVerifyEmailFragment.Container] with FragmentHelper with View.OnClickListener {
-  private lazy val resendTextView = findById[TextView](getView, R.id.ttv__pending_email__resend)
-  private lazy val checkEmailTextView = findById[TextView](getView, R.id.ttv__sign_up__check_email)
-  private lazy val didntGetEmailTextView = findById[TextView](getView, R.id.ttv__sign_up__didnt_get)
-  private lazy val backButton = findById[View](getView, R.id.ll__activation_button__back)
+
+  private lazy val resendTextView = view[TextView](R.id.ttv__pending_email__resend)
+  private lazy val checkEmailTextView = view[TextView](R.id.ttv__sign_up__check_email)
+  private lazy val didntGetEmailTextView = view[TextView](R.id.ttv__sign_up__didnt_get)
+  private lazy val backButton = view[View](R.id.ll__activation_button__back)
 
   lazy val appEntryController = inject[AppEntryController]
 
@@ -47,11 +48,10 @@ class EmailVerifyEmailFragment extends BaseFragment[EmailVerifyEmailFragment.Con
 
     findById[View](view, R.id.gtv__not_now__close).setVisibility(View.GONE)
     findById[View](view, R.id.fl__confirmation_checkmark).setVisibility(View.GONE)
+  }
 
-    appEntryController.currentAccount.map(_.map(_.phone.isDefined)).onUi {
-      case Some(true) => backButton.setVisibility(View.GONE)
-      case _ => backButton.setVisibility(View.VISIBLE)
-    }
+  override def onCreate(savedInstanceState: Bundle): Unit = {
+    super.onCreate(savedInstanceState)
 
     appEntryController.currentAccount.map(_.flatMap(acc => acc.pendingEmail.orElse(acc.email))).onUi {
       case Some(email) => setEmailText(email.str)
@@ -82,9 +82,15 @@ class EmailVerifyEmailFragment extends BaseFragment[EmailVerifyEmailFragment.Con
   }
 
   def onClick(v: View): Unit = {
+    import com.waz.threading.Threading.Implicits.Background
     v.getId match {
       case R.id.ll__activation_button__back =>
-        appEntryController.cancelVerification()
+        appEntryController.currentAccount.map(_.map(_.phone.isDefined)).head.foreach {
+          case Some(true) =>
+            appEntryController.cancelEmailVerification()
+          case _ =>
+            appEntryController.removeCurrentAccount()
+        }
       case R.id.ttv__pending_email__resend =>
         didntGetEmailTextView.animate.alpha(0).start()
         resendTextView.animate.alpha(0).withEndAction(new Runnable() {

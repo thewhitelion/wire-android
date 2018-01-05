@@ -38,7 +38,7 @@ case class AddEmailFragment() extends BaseFragment[Container] with FragmentHelpe
 
   lazy val addEmailController = inject[AddEmailController]
 
-  lazy val confirmationButton = Option(findById[PhoneConfirmationButton](R.id.confirmation_button))
+  lazy val confirmationButton = view[PhoneConfirmationButton](R.id.confirmation_button)
 
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup, savedInstanceState: Bundle) =
     inflater.inflate(R.layout.add_email_fragment, container, false)
@@ -58,24 +58,28 @@ case class AddEmailFragment() extends BaseFragment[Container] with FragmentHelpe
       field.getEditText.addTextListener(addEmailController.password ! _)
     }
 
-    confirmationButton.foreach { button =>
-      button.onClick {
-        getContainer.enableProgress(true)
-        addEmailController.addEmailAndPassword().map {
-          case Left(error) =>
-            getContainer.enableProgress(false)
-            getContainer.showError(EntryError(error.getCode, error.getLabel, SignInMethod(Register, Email)))
-          case _ =>
-        }
+    confirmationButton.get.onClick {
+      getContainer.enableProgress(true)
+      addEmailController.addEmailAndPassword().map {
+        case Left(error) =>
+          getContainer.enableProgress(false)
+          getContainer.showError(EntryError(error.getCode, error.getLabel, SignInMethod(Register, Email)))
+        case _ =>
       }
-      button.setAccentColor(Color.WHITE)
     }
+    confirmationButton.setAccentColor(Color.WHITE)
     setConfirmationButtonActive(addEmailController.isValid.currentValue.getOrElse(false))
     addEmailController.isValid.onUi { setConfirmationButtonActive }
   }
 
+
+  override def onCreate(savedInstanceState: Bundle): Unit = {
+    super.onCreate(savedInstanceState)
+    addEmailController.isValid.onUi { setConfirmationButtonActive }
+  }
+
   private def setConfirmationButtonActive(active: Boolean): Unit =
-    confirmationButton.foreach(_.setState(if(active) CONFIRM else NONE))
+    confirmationButton.setState(if(active) CONFIRM else NONE)
 
   override def onBackPressed(): Boolean = true
 }
