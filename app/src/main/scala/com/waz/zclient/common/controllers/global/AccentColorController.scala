@@ -44,13 +44,22 @@ class AccentColorController(implicit inj: Injector) extends Injectable {
     color <- accentColor(z)
   } yield color
 
-  def accentColor(z: ZMessaging): Signal[com.waz.api.AccentColor] = z.usersStorage.optSignal(z.selfUserId).map {
-    case Some(u) => Some(AccentColor(u.accent))
-    case _ => None
-  }.flatMap {
+  def accentColor(z: ZMessaging): Signal[com.waz.api.AccentColor] =
+    accentColor(Some(z))
+
+  def accentColor(zms: Option[ZMessaging]): Signal[com.waz.api.AccentColor] =
+    (zms match {
+      case Some(z) =>
+        z.usersStorage.optSignal(z.selfUserId).map {
+          case Some(u) => Some(AccentColor(u.accent))
+          case _ => None
+        }
+      case _ => Signal.const(Option.empty[com.waz.api.AccentColor])
+    }).flatMap {
     case Some(c) => Signal.const(c)
     case None => randomColorPref.signal.map {
       AccentColors.colors(_)
     }
   }
+
 }

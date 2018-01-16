@@ -49,9 +49,10 @@ class ConversationController(implicit injector: Injector, context: Context, ec: 
 
   private var lastConvId = Option.empty[ConvId]
 
-  val currentConvId: Signal[ConvId] = zms.flatMap(_.convsStats.selectedConversationId).collect { case Some(convId) => convId }
-  val currentConvOpt: Signal[Option[ConversationData]] = currentConvId.flatMap { conversationData } // updates on every change of the conversation data, not only on switching
-  val currentConv: Signal[ConversationData] = currentConvOpt.collect { case Some(conv) => conv }
+  val currentConvIdOpt: Signal[Option[ConvId]]           = zms.flatMap(_.convsStats.selectedConversationId)
+  val currentConvId:    Signal[ConvId]                   = currentConvIdOpt.collect { case Some(convId) => convId }
+  val currentConvOpt:   Signal[Option[ConversationData]] = currentConvId.flatMap(conversationData) // updates on every change of the conversation data, not only on switching
+  val currentConv:      Signal[ConversationData]         = currentConvOpt.collect { case Some(conv) => conv }
 
   val convChanged: SourceStream[ConversationChange] = EventStream[ConversationChange]()
 
