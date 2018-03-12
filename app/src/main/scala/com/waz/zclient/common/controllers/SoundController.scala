@@ -34,6 +34,7 @@ import com.waz.zclient.utils.{DeprecationUtils, RingtoneUtils}
 import com.waz.zclient.utils.RingtoneUtils.{getUriForRawId, isDefaultValue}
 import com.waz.zclient.{R, _}
 
+
 //TODO Dean - would be nice to change these unit methods to listeners on signals from the classes that could trigger sounds.
 //For that, however, we would need more signals in the app, and hence more scala classes...
 class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
@@ -41,8 +42,6 @@ class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
   private implicit val ev = EventContext.Implicits.global
 
   private val zms = inject[Signal[ZMessaging]]
-  private val audioManager = Option(inject[AudioManager])
-  private val vibrator = Option(inject[Vibrator])
 
   private val mediaManager = zms.flatMap(z => Signal.future(z.mediamanager.mediaManager))
   private val soundIntensity = zms.flatMap(_.mediamanager.soundIntensity)
@@ -50,7 +49,7 @@ class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
   private var _mediaManager = Option.empty[MediaManager]
   mediaManager(m => _mediaManager = Some(m))
 
-  val tonePrefs = (for {
+  private val tonePrefs = (for {
     zms <- zms
     ringTone <- zms.userPrefs.preference(UserPreferences.RingTone).signal
     textTone <- zms.userPrefs.preference(UserPreferences.TextTone).signal
@@ -64,7 +63,7 @@ class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
 
   def currentTonePrefs = tonePrefs.currentValue.getOrElse((null, null, null))
 
-  val vibrationEnabled = zms.flatMap(_.userPrefs.preference(UserPreferences.VibrateEnabled).signal).disableAutowiring()
+  private lazy val vibrationEnabled = zms.flatMap(_.userPrefs.preference(UserPreferences.VibrateEnabled).signal).disableAutowiring()
 
   def isVibrationEnabled = vibrationEnabled.currentValue.getOrElse(false)
 
@@ -98,7 +97,7 @@ class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
     setVibrating(R.array.talk_later)
   }
 
-  def playCallDroppedSound() = {
+  def playCallDroppedSound() = { // not used?
     if (soundIntensityFull) setMediaPlaying(R.raw.call_drop)
     setVibrating(R.array.call_dropped)
   }
@@ -108,23 +107,21 @@ class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
     setVibrating(R.array.alert)
   }
 
-  def shortVibrate() =
-    setVibrating(R.array.alert)
+  def shortVibrate() = setVibrating(R.array.alert)
 
-  def playMessageIncomingSound(firstMessage: Boolean) = {
+  def playMessageIncomingSound(firstMessage: Boolean) = { // not used?
     if (firstMessage && !soundIntensityNone) setMediaPlaying(R.raw.first_message)
     else if (soundIntensityFull) setMediaPlaying(R.raw.new_message)
     setVibrating(R.array.new_message)
   }
 
-  def playPingFromThem() = {
+  def playPingFromThem() = { // not used?
     if (!soundIntensityNone) setMediaPlaying(R.raw.ping_from_them)
     setVibrating(R.array.ping_from_them)
   }
 
   //no vibration needed
-  def playPingFromMe() =
-    if (!soundIntensityNone) setMediaPlaying(R.raw.ping_from_me)
+  def playPingFromMe() = if (!soundIntensityNone) setMediaPlaying(R.raw.ping_from_me)
 
   def playCameraShutterSound() = {
     if (soundIntensityFull) setMediaPlaying(R.raw.camera)
@@ -135,7 +132,7 @@ class SoundController(implicit inj: Injector, cxt: Context) extends Injectable {
     * @param play For looping patterns, this parameter will tell to stop vibrating if they have previously been started
     */
   private def setVibrating(patternId: Int, play: Boolean = true, loop: Boolean = false): Unit = {
-    (audioManager, vibrator) match {
+    (Option(inject[AudioManager]), Option(inject[Vibrator])) match {
       case (Some(am), Some(vib)) if play && am.getRingerMode != AudioManager.RINGER_MODE_SILENT && isVibrationEnabled =>
         vib.cancel() // cancel any current vibrations
         DeprecationUtils.vibrate(vib, getIntArray(patternId).map(_.toLong), if (loop) 0 else -1)
