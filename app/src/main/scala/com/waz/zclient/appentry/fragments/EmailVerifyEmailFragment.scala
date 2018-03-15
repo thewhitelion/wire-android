@@ -25,6 +25,7 @@ import com.waz.zclient.appentry.controllers.AppEntryController
 import com.waz.zclient.pages.BaseFragment
 import com.waz.zclient.ui.utils.{KeyboardUtils, TextViewUtils}
 import com.waz.zclient.{FragmentHelper, R}
+import com.waz.ZLog.ImplicitTag._
 
 object EmailVerifyEmailFragment {
   val TAG: String = classOf[EmailVerifyEmailFragment].getName
@@ -81,16 +82,20 @@ class EmailVerifyEmailFragment extends BaseFragment[EmailVerifyEmailFragment.Con
     TextViewUtils.boldText(checkEmailTextView)
   }
 
-  def onClick(v: View): Unit = {
+  private def back(): Unit = {
     import com.waz.threading.Threading.Implicits.Background
+    appEntryController.currentAccount.map(_.map(_.phone.isDefined)).head.foreach {
+      case Some(true) =>
+        appEntryController.cancelEmailVerification()
+      case _ =>
+        appEntryController.removeCurrentAccount()
+    }
+  }
+
+  def onClick(v: View): Unit = {
     v.getId match {
       case R.id.ll__activation_button__back =>
-        appEntryController.currentAccount.map(_.map(_.phone.isDefined)).head.foreach {
-          case Some(true) =>
-            appEntryController.cancelEmailVerification()
-          case _ =>
-            appEntryController.removeCurrentAccount()
-        }
+        back()
       case R.id.ttv__pending_email__resend =>
         didntGetEmailTextView.animate.alpha(0).start()
         resendTextView.animate.alpha(0).withEndAction(new Runnable() {
@@ -100,5 +105,10 @@ class EmailVerifyEmailFragment extends BaseFragment[EmailVerifyEmailFragment.Con
         }).start()
         appEntryController.resendActivationEmail()
     }
+  }
+
+  override def onBackPressed(): Boolean = {
+    back()
+    true
   }
 }

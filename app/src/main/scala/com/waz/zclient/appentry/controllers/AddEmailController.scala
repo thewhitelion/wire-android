@@ -24,6 +24,7 @@ import com.waz.service.ZMessaging
 import com.waz.utils.events.{EventContext, Signal}
 import com.waz.zclient.pages.main.profile.validator.{EmailValidator, PasswordValidator}
 import com.waz.zclient.{Injectable, Injector}
+import com.waz.ZLog.ImplicitTag._
 
 import scala.concurrent.Future
 
@@ -42,20 +43,27 @@ class AddEmailController(implicit inj: Injector, eventContext: EventContext, con
     password <- password
   } yield emailValidator.validate(email) && passwordValidator.validate(password)
 
+  (for {
+    Some(accountManager) <- ZMessaging.currentAccounts.activeAccountManager
+    true <- isValid
+    password <- password
+    Some(_) <- ZMessaging.currentAccounts.activeAccount.map(_.flatMap(_.email))
+    None <- ZMessaging.currentAccounts.activeAccount.map(_.flatMap(_.pendingEmail))
+  } yield (accountManager, password)){ case (am, p) =>
+    am.updatePassword(p, None)
+  }
+
   def addEmailAndPassword(): Future[Either[ErrorResponse, Unit]] = {
     import com.waz.threading.Threading.Implicits.Background
 
     for {
       email <- email.head
-      password <- password.head
       Some(accountManager) <- ZMessaging.currentAccounts.activeAccountManager.head
       emailRes <- accountManager.updateEmail(EmailAddress(email)).future
-      currentAccount <- accountManager.accountData.head
       res <- emailRes match {
         case Right(_) =>
-          accountManager.accounts.updateCurrentAccount(_.copy(pendingEmail = Some(EmailAddress(email)))).flatMap { _ =>
-            accountManager.updatePassword(password, currentAccount.password)
-          }
+          accountManager.accounts.updateCurrentAccount(_.copy(pendingEmail = Some(EmailAddress(email))))
+            .map(_ => Right(()))
         case Left(err) => Future.successful(Left(err))
       }
     } yield res
